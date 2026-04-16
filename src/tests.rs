@@ -1,6 +1,6 @@
-pub mod legacy;
 
-use super::v3::{categorise_text, construct_text_no_codes, line_iter, CategorisedSlice};
+
+use super::{categorise_text, construct_text_no_codes, line_iter, CategorisedSlice};
 use super::{parse, split_on_new_line, Color, Intensity};
 use colored::Colorize;
 use std::io::Write;
@@ -32,19 +32,6 @@ const DIM: &str = "\x1b[2m";
 const ITALIC: &str = "\x1b[3m";
 const UNDERLINE: &str = "\x1b[4m";
 
-fn clone_style<'text>(
-    slice: CategorisedSlice<'text>,
-    text: &'text str,
-    start: usize,
-    end: usize,
-) -> CategorisedSlice<'text> {
-    CategorisedSlice {
-        text,
-        start,
-        end,
-        ..slice
-    }
-}
 
 #[test]
 fn cover_other_parameters() {
@@ -223,11 +210,11 @@ fn clone_style_test() {
     colored::control::set_override(true);
     let s = "hello".green();
     let c = categorise_text(&s);
-    let d = clone_style(c[0], "why", 0, 0);
+    let d = c[0].clone_style("why", 0, 0);
 
     assert_eq!(d.text, "why");
 
-    let e = clone_style(d, "hello", 0, 5);
+    let e = d.clone_style("hello", 0, 5);
 
     assert_eq!(c[0], e);
 }
@@ -292,8 +279,8 @@ fn line_iter_test() {
     assert_eq!(
         iter.next(),
         Some(vec![
-            clone_style(green, "hello, ", 5, 12),
-            clone_style(red, "world", 21, 26)
+            green.clone_style("hello, ", 5, 12),
+            red.clone_style("world", 21, 26)
         ])
     );
     assert_eq!(
@@ -320,8 +307,8 @@ fn line_iter_test() {
     assert_eq!(
         iter.next(),
         Some(vec![
-            clone_style(green, "hello, ", 5, 12),
-            clone_style(red, "world", 21, 26)
+            green.clone_style("hello, ", 5, 12),
+            red.clone_style("world", 21, 26)
         ])
     );
     assert_eq!(
@@ -462,7 +449,7 @@ fn line_iter_newline_starts_with_esc() {
             ..DEFAULT_STYLE
         }])
     );
-    assert_eq!(iter.next(), Some(vec![clone_style(green, "world", 11, 16)]));
+    assert_eq!(iter.next(), Some(vec![green.clone_style("world", 11, 16)]));
     assert_eq!(&s[11..16], "world");
 }
 
@@ -488,7 +475,7 @@ fn line_iter_bugs() {
     assert_eq!(
         iter.next(),
         Some(vec![
-            clone_style(cyan, "papyrus", 5, 12),
+            cyan.clone_style("papyrus", 5, 12),
             CategorisedSlice{
                 text: "=> 5+6",
                 start: 16,

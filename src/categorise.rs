@@ -5,27 +5,13 @@ use alloc::vec::Vec;
 
 const SEPARATOR: char = ';';
 
-/// Parses the text and returns each formatted slice in order.
-/// The ANSI escape codes are not included in the text slices.
-///
-/// Each different text slice is returned in order such that the text without the escape characters can be reconstructed.
-/// There is a helper function (`construct_text_no_codes`) on `CategorisedSlices` for this.
-#[deprecated = "please use v3::categorise_text to move to API v3.0. \
-                this function will be removed with v3.0 of cansi"]
-#[allow(deprecated)]
-pub fn categorise_text(text: &str) -> CategorisedSlices {
-    categorise_text_v3(text)
-        .into_iter()
-        .map(Into::into)
-        .collect()
-}
 
 /// Parses the text and returns each formatted slice in order.
 /// The ANSI escape codes are not included in the text slices.
 ///
 /// Each different text slice is returned in order such that the text without the escape characters can be reconstructed.
 /// There is a helper function (`construct_text_no_codes`) on `CategorisedSlices` for this.
-pub fn categorise_text_v3(text: &str) -> v3::CategorisedSlices {
+pub fn categorise_text(text: &str) -> CategorisedSlices {
     let matches = parse(text);
 
     let mut sgr = SGR::default();
@@ -33,12 +19,12 @@ pub fn categorise_text_v3(text: &str) -> v3::CategorisedSlices {
     let mut lo = 0;
 
     // will always less than or equal to matches + 1 in length, see tests
-    let mut slices: Vec<v3::CategorisedSlice> = Vec::with_capacity(matches.len() + 1);
+    let mut slices: Vec<CategorisedSlice> = Vec::with_capacity(matches.len() + 1);
 
     for m in matches {
         // add in the text before CSI with the previous SGR format
         if m.start != lo {
-            slices.push(v3::CategorisedSlice::with_sgr(
+            slices.push(CategorisedSlice::with_sgr(
                 sgr,
                 &text[lo..m.start],
                 lo,
@@ -52,7 +38,7 @@ pub fn categorise_text_v3(text: &str) -> v3::CategorisedSlices {
     }
 
     if lo != text.len() {
-        slices.push(v3::CategorisedSlice::with_sgr(
+        slices.push(CategorisedSlice::with_sgr(
             sgr,
             &text[lo..text.len()],
             lo,
@@ -155,10 +141,10 @@ mod tests {
 
     #[test]
     fn malformed_escapes() {
-        let x = categorise_text_v3("oops\x1b[\n");
+        let x = categorise_text("oops\x1b[\n");
         assert_eq!(
             x,
-            vec![v3::CategorisedSlice {
+            vec![CategorisedSlice {
                 text: "oops\x1b[\n",
                 start: 0,
                 end: 7,
