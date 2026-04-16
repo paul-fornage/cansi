@@ -3,7 +3,7 @@ extern crate criterion;
 
 use colored::*;
 use criterion::Criterion;
-
+// `cargo bench --bench benches -- --baseline original`
 fn categorise_text_fn(c: &mut Criterion) {
     c.bench_function("fn categorise_text &str", |b| {
         let txt = "\u{1b}[91mHello, world!\u{1b}[0m";

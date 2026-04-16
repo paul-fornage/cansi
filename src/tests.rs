@@ -576,7 +576,7 @@ fn test_echo_command() {
     assert_eq!(
         slices[2],
         CategorisedSlice {
-            text: "<<<",
+            text: "<<<", // TODO: not supported, not planned
             start: 29,
             end: 32,
             fg: Some(Color::Green),

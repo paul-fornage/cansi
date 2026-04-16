@@ -86,6 +86,7 @@ mod parsing;
 
 #[cfg(test)]
 mod tests;
+mod new_approach;
 
 
 pub use categorise::categorise_text;
