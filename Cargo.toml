@@ -13,10 +13,11 @@ edition = "2021"
 
 [features]
 default = ["std"]
-std = []
+std = ["thiserror/std"]
 alloc = []
 
 [dependencies]
+thiserror = { version = "2", default-features = false }
 
 [dev-dependencies]
 criterion = "0.3"

@@ -576,7 +576,7 @@ fn test_echo_command() {
     assert_eq!(
         slices[2],
         CategorisedSlice {
-            text: "<<<", // TODO: not supported, not planned
+            text: "<<<",
             start: 29,
             end: 32,
             fg: Some(Color::Green),
@@ -633,8 +633,8 @@ fn test_heartbeat() {
         slices[1],
         CategorisedSlice {
             text: " alive t_ms=",
-            start: 24,
-            end: 35,
+            start: 28,
+            end: 40,
             intensity: Some(Intensity::Faint),
             ..DEFAULT_STYLE
         }
@@ -643,8 +643,8 @@ fn test_heartbeat() {
         slices[2],
         CategorisedSlice {
             text: ms,
-            start: 39,
-            end: 43,
+            start: 44,
+            end: 48,
             ..DEFAULT_STYLE
         }
     );
