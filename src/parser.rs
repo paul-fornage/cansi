@@ -176,12 +176,10 @@ impl Parser {
     }
 }
 
-/// Single-pass state-machine parser.
+/// Single-pass state-machine parser: walks the input byte-by-byte, interprets CSI SGR
+/// sequences cumulatively, strips other CSI sequences, and returns styled text segments.
 ///
-/// Walks the input byte-by-byte. When it encounters `ESC[`, it tries to parse
-/// a CSI SGR sequence. Valid SGR sequences update the cumulative graphic
-/// rendition (GRCM cumulative mode). Other valid CSI sequences are stripped.
-/// Malformed or truncated sequences are kept as literal text.
+/// Malformed or truncated sequences are treated as literal text.
 pub fn parse(text: &'_ str) -> Vec<CategorisedSlice<'_>> {
     let bytes = text.as_bytes();
     let len = bytes.len();

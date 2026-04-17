@@ -1,7 +1,5 @@
-
-
 use super::{categorise_text, construct_text_no_codes, line_iter, CategorisedSlice};
-use super::{parse, split_on_new_line, Color, Intensity};
+use super::{split_on_new_line, Color, Intensity};
 use colored::Colorize;
 use std::io::Write;
 
@@ -491,13 +489,10 @@ fn line_iter_bugs() {
 
 #[test]
 fn byte_bug() {
+    // Multi-byte UTF-8 characters must not be misread as escape sequences.
     let s = "ﾮ";
-    let matches = parse(s);
-    assert_eq!(matches, vec![]);
-
-    let x = categorise_text(&s);
-    let c = construct_text_no_codes(&x);
-    assert_eq!(s, c);
+    let x = categorise_text(s);
+    assert_eq!(construct_text_no_codes(&x), s);
 }
 
 #[test]
@@ -1041,4 +1036,38 @@ fn test_colored_function() {
         CategorisedSlice { text: test_string, start: 4, end: 8, strikethrough: Some(true), ..DEFAULT_STYLE },
         "strikethrough()"
     );
+}
+
+#[test]
+fn malformed_escapes() {
+    let x = categorise_text("oops\x1b[\n");
+    assert_eq!(
+        x,
+        vec![CategorisedSlice {
+            text: "oops\x1b[\n",
+            start: 0,
+            end: 7,
+            ..DEFAULT_STYLE
+        }]
+    );
+}
+
+#[test]
+fn basic_colour_positions() {
+    // Verify that byte positions in the output slices match the original string
+    // after stripping escape sequences.
+    let text = "Hello, \x1b[31;4mworld\x1b[0m!";
+    let result = categorise_text(text);
+
+    assert_eq!(result.len(), 3);
+    assert_eq!(result[0], CategorisedSlice { text: "Hello, ", start: 0, end: 7, ..DEFAULT_STYLE });
+    assert_eq!(result[1], CategorisedSlice {
+        text: "world",
+        start: 14,
+        end: 19,
+        fg: Some(Color::Red),
+        underline: Some(true),
+        ..DEFAULT_STYLE
+    });
+    assert_eq!(result[2], CategorisedSlice { text: "!", start: 23, end: 24, ..DEFAULT_STYLE });
 }

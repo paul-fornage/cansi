@@ -1,6 +1,6 @@
 [package]
 name = "cansi"
-description = "Catergorise ANSI - ANSI escape code parser and categoriser"
+description = "Categorise ANSI - ANSI escape code parser and categoriser"
 version = "2.2.1"
 authors = ["kurt <kurtlawrence92@gmail.com>"]
 license = "MIT"

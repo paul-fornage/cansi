@@ -1,23 +1,15 @@
-//! [![Build Status](https://travis-ci.com/kurtlawrence/cansi.svg?branch=master)](https://travis-ci.com/kurtlawrence/cansi)
 //! [![Latest Version](https://img.shields.io/crates/v/cansi.svg)](https://crates.io/crates/cansi)
 //! [![Rust Documentation](https://img.shields.io/badge/api-rustdoc-blue.svg)](https://docs.rs/cansi)
-//! [![codecov](https://codecov.io/gh/kurtlawrence/cansi/branch/master/graph/badge.svg)](https://codecov.io/gh/kurtlawrence/cansi)
 //!
-//! # **C**atergorise **ANSI** - ANSI escape code parser and categoriser
+//! # cansi — ANSI escape code parser
 //!
-//! See the [rs docs.](https://docs.rs/cansi/)
-//! Look at progress and contribute on [github.](https://github.com/kurtlawrence/cansi)
+//! Parses text containing ANSI escape sequences and returns it split into styled segments.
+//! Only [CSI SGR](https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_(Select_Graphic_Rendition)_parameters)
+//! sequences are interpreted; other CSI sequences (cursor movement, etc.) are stripped silently.
+//! cansi does not *produce* coloured text — for that, see crates like
+//! [`colored`](https://crates.io/crates/colored).
 //!
-//! `cansi` will parse text with ANSI escape sequences in it and return a deconstructed
-//! text with metadata around the colouring and styling. `cansi` is only concerned
-//! with `CSI` sequences, particuarly the `SGR` parameters. `cansi` will not construct
-//! escaped text, there are crates such as [`colored`](https://crates.io/crates/colored)
-//! that do a great job of colouring and styling text.
-//!
-//! # Example usage
-//!
-//! > This example was done using the `colored` crate to help with constructing the escaped
-//! > text string. It will work with other tools that inject escape sequences into text strings (given they follow [ANSI specification](https://en.wikipedia.org/wiki/ANSI_escape_code)).
+//! ## Usage
 //!
 //! ```rust
 //! # use cansi::*;
@@ -39,35 +31,35 @@
 //! .unwrap();
 //!
 //! let text = String::from_utf8_lossy(&v);
-//! let result = categorise_text(&text); // cansi function
+//! let result = categorise_text(&text);
 //!
-//! assert_eq!(result.len(), 7); // there should be seven differently styled components
-//!
+//! assert_eq!(result.len(), 7); // seven differently styled segments
 //! assert_eq!("Hello, world!", &construct_text_no_codes(&result));
 //!
-//! // 'Hello, ' is just defaults
+//! // "Hello, " has no styling
 //! assert_eq!(result[0].text, "Hello, ");
-//! assert_eq!(result[0].start, 0);
-//! assert_eq!(result[0].end, 7);
 //! assert_eq!(result[0].fg, None);
 //! assert_eq!(result[0].bg, None);
 //!
-//! // 'w' is coloured differently
+//! // "w" is white on red
 //! assert_eq!(result[1].text, "w");
-//! assert_eq!(result[1].start, 15);
-//! assert_eq!(result[1].end, 16);
 //! assert_eq!(result[1].fg, Some(Color::White));
 //! assert_eq!(result[1].bg, Some(Color::Red));
 //! ```
 //!
-//! ## Targeting no_std
-//! This crate can use `alloc` in place of the standard library for no_std targets.
-//! The standard library is enabled by default, so disabling default features and enabling the
-//! `alloc` feature is required to use the crate this way.
+//! ## Style fields
+//!
+//! Every field on [`CategorisedSlice`] is `Option<T>`. `None` means the attribute was not set
+//! by any escape sequence in the current run (i.e. it inherits the terminal default).
+//! `Some(v)` means it was explicitly set to `v`.
+//!
+//! ## no_std support
+//!
+//! The `std` feature (enabled by default) can be replaced with `alloc` for no_std targets:
 //!
 //! ```toml
 //! [dependencies]
-//! cansi = { version = "2.1.0", default-features = false, features = ["alloc"] }
+//! cansi = { version = "2.2", default-features = false, features = ["alloc"] }
 //! ```
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -83,44 +75,12 @@ use alloc::vec::Vec;
 
 #[macro_use]
 mod logging;
-mod categorise;
-mod parsing;
+mod parser;
 
 #[cfg(test)]
 mod tests;
-mod new_approach;
 
-
-pub use categorise::categorise_text;
-pub use parsing::{parse, Match};
-
-
-
-
-/// Splits on the first instance of `\r\n` or `\n` bytes.
-/// Returns the _exclusive_ end of the first componenet, and the _inclusive_ start of the remaining items if there is a split.
-/// Can return an empty remainder slice (if terminated with a new line). Can return empty first slice (say `"\nHello"`);
-fn split_on_new_line(txt: &str) -> (usize, Option<usize>) {
-    let cr = txt.find('\r');
-    let nl = txt.find('\n');
-
-    match (cr, nl) {
-        (None, None) => (txt.len(), None),
-        (Some(_), None) => (txt.len(), None), // special case, no new line but cr
-        (None, Some(nl)) => (nl, Some(nl + 1)),
-        (Some(cr), Some(nl)) => {
-            if nl.saturating_sub(1) == cr {
-                (cr, Some(nl + 1))
-            } else {
-                (nl, Some(nl + 1))
-            }
-        }
-    }
-}
-
-
-
-/// The formatting components `SGR (Select Graphic Rendition)`.
+/// The SGR (Select Graphic Rendition) state accumulated from escape sequences.
 /// [spec](https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_(Select_Graphic_Rendition)_parameters)
 #[derive(Clone, Copy, Default)]
 #[allow(clippy::upper_case_acronyms)]
@@ -147,7 +107,7 @@ pub enum Intensity {
     Faint,
 }
 
-/// The 8 standard colors.
+/// The 16 standard ANSI colours.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[allow(missing_docs)]
 pub enum Color {
@@ -169,39 +129,40 @@ pub enum Color {
     BrightWhite,
 }
 
-
-
-
-/// Data structure that holds information about colouring and styling of a text slice.
+/// A contiguous run of text that shares the same SGR styling.
+///
+/// All style fields are `Option<T>`: `None` indicates the attribute was not set
+/// by any escape sequence (terminal default applies); `Some(v)` means it was
+/// explicitly set to `v`.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct CategorisedSlice<'text> {
-    /// The text slice.
+    /// The text content (escape codes excluded).
     pub text: &'text str,
-    /// _Inclusive_ starting byte position.
+    /// Inclusive starting byte position in the original string.
     pub start: usize,
-    /// _Exclusive_ ending byte position.
+    /// Exclusive ending byte position in the original string.
     pub end: usize,
 
-    /// The foreground (or text) colour.
+    /// Foreground (text) colour.
     pub fg: Option<Color>,
-    /// The background colour.
+    /// Background colour.
     pub bg: Option<Color>,
 
-    /// The emphasis state (bold, faint, normal).
+    /// Bold / faint / normal emphasis.
     pub intensity: Option<Intensity>,
 
-    /// Italicised.
+    /// Italic text.
     pub italic: Option<bool>,
-    /// Underlined.
+    /// Underlined text.
     pub underline: Option<bool>,
 
-    /// Slow blink text.
+    /// Blinking text.
     pub blink: Option<bool>,
-    /// Inverted colours. See [https://en.wikipedia.org/wiki/Reverse_video](https://en.wikipedia.org/wiki/Reverse_video).
+    /// Reversed colours. See [reverse video](https://en.wikipedia.org/wiki/Reverse_video).
     pub reversed: Option<bool>,
-    /// Invisible text.
+    /// Invisible (concealed) text.
     pub hidden: Option<bool>,
-    /// Struck-through.
+    /// Struck-through text.
     pub strikethrough: Option<bool>,
 }
 
@@ -243,23 +204,60 @@ impl<'text> CategorisedSlice<'text> {
         c
     }
 
-    #[cfg(test)]
-    fn default_style(text: &'text str, start: usize, end: usize) -> Self {
-        Self::with_sgr(SGR::default(), text, start, end)
-    }
+
 }
 
-/// Type definition of the collection of `CategorisedSlice`s.
+/// A collection of [`CategorisedSlice`]s covering a parsed string.
 pub type CategorisedSlices<'text> = Vec<CategorisedSlice<'text>>;
 
-/// The item type of `CategorisedLineIterator`.
+/// A single line's worth of [`CategorisedSlice`]s, as yielded by [`CategorisedLineIterator`].
 ///
-/// # Note
-/// > The type alias is the same as `CategorisedSlices`, so functions such as `construct_text_no_codes` will work.
+/// The type alias is the same as [`CategorisedSlices`], so functions such as
+/// [`construct_text_no_codes`] work on it directly.
 pub type CategorisedLine<'text> = Vec<CategorisedSlice<'text>>;
 
-/// Construct an iterator over each new line (`\n` or `\r\n`) and returns the categorised slices within those.
-/// `CategorisedSlice`s that include a new line are split with the same style.
+/// Parses text containing ANSI escape sequences and returns each styled segment in order.
+///
+/// Escape codes are not included in the returned text slices. The original text (without
+/// escape codes) can be reconstructed with [`construct_text_no_codes`].
+///
+/// # Example
+/// ```rust
+/// use cansi::*;
+/// let result = categorise_text("\x1b[31mHello\x1b[0m, world!");
+/// assert_eq!(result[0].text, "Hello");
+/// assert_eq!(result[0].fg, Some(Color::Red));
+/// assert_eq!(result[1].text, ", world!");
+/// assert_eq!(result[1].fg, None);
+/// ```
+pub fn categorise_text(text: &str) -> CategorisedSlices<'_> {
+    parser::parse(text)
+}
+
+/// Constructs a string from the categorised slices, with all ANSI escape codes removed.
+///
+/// # Example
+/// ```rust
+/// use cansi::*;
+/// let categorised = categorise_text("\x1b[30mH\x1b[31me\x1b[32ml\x1b[33ml\x1b[34mo");
+/// assert_eq!("Hello", &construct_text_no_codes(&categorised));
+/// ```
+pub fn construct_text_no_codes(categorised_slices: &CategorisedSlices) -> String {
+    let mut s = String::with_capacity(
+        categorised_slices
+            .iter()
+            .map(|x| x.text.len())
+            .sum::<usize>(),
+    );
+    for sl in categorised_slices {
+        s.push_str(sl.text);
+    }
+    s
+}
+
+/// Returns an iterator over lines of [`CategorisedSlice`]s, splitting on `\n` or `\r\n`.
+///
+/// Slices that span a line boundary are split and yielded with the same style on each side.
 ///
 /// # Example
 /// ```rust
@@ -274,7 +272,6 @@ pub type CategorisedLine<'text> = Vec<CategorisedSlice<'text>>;
 /// let first = iter.next().unwrap();
 /// assert_eq!(first[0].text, "hello, ");
 /// assert_eq!(first[0].fg, Some(Color::Green));
-///
 /// assert_eq!(first[1].text, "world");
 /// assert_eq!(first[1].fg, Some(Color::Red));
 ///
@@ -292,30 +289,9 @@ pub fn line_iter<'text, 'iter>(
     }
 }
 
-/// An iterator structure for `CategorisedSlices`, iterating over each new line (`\n` or `\r\n`) and returns the categorised slices within those.
-/// `CategorisedSlice`s that include a new line are split with the same style.
+/// Iterator over lines of [`CategorisedSlice`]s, splitting on `\n` or `\r\n`.
 ///
-/// # Example
-/// ```rust
-/// # use colored::Colorize;
-/// # colored::control::set_override(true);
-/// # use cansi::*;
-///
-/// let s = format!("{}{}\nhow are you\r\ntoday", "hello, ".green(), "world".red());
-/// let cat = categorise_text(&s);
-/// let mut iter = line_iter(&cat);
-///
-/// let first = iter.next().unwrap();
-/// assert_eq!(first[0].text, "hello, ");
-/// assert_eq!(first[0].fg, Some(Color::Green));
-///
-/// assert_eq!(first[1].text, "world");
-/// assert_eq!(first[1].fg, Some(Color::Red));
-///
-/// assert_eq!(&construct_text_no_codes(&iter.next().unwrap()), "how are you");
-/// assert_eq!(&construct_text_no_codes(&iter.next().unwrap()), "today");
-/// assert_eq!(iter.next(), None);
-/// ```
+/// Constructed with [`line_iter`].
 pub struct CategorisedLineIterator<'text, 'iter> {
     slices: &'iter CategorisedSlices<'text>,
     idx: usize,
@@ -328,32 +304,27 @@ impl<'text, 'iter> Iterator for CategorisedLineIterator<'text, 'iter> {
         let mut v = Vec::new();
 
         if let Some(prev) = &self.prev {
-            // need to test splitting this, might be more new lines in remainder
             let (first, remainder) = split_on_new_line(prev.text);
 
-            // push first slice on -- only if not empty
-            // if first.len() == 0 it is because there is a sequence of new lines
             v.push(prev.clone_style(&prev.text[..first], prev.start, prev.start + first));
 
             if let Some(remainder) = remainder {
-                // there is a remainder, which means that a new line was hit
                 self.prev = Some(prev.clone_style(
                     &prev.text[remainder..],
                     prev.start + remainder,
                     prev.end,
                 ));
-                return Some(v); // exit early
+                return Some(v);
             }
 
-            self.prev = None; // consumed prev
+            self.prev = None;
         }
 
         while let Some(slice) = self.slices.get(self.idx) {
-            self.idx += 1; // increment to next slice, always happens as well split this slice.
+            self.idx += 1;
 
             let (first, remainder) = split_on_new_line(slice.text);
 
-            // push first slice on -- only if not empty
             if first > 0 || v.is_empty() {
                 v.push(slice.clone_style(
                     &slice.text[..first],
@@ -363,46 +334,43 @@ impl<'text, 'iter> Iterator for CategorisedLineIterator<'text, 'iter> {
             }
 
             if let Some(remainder) = remainder {
-                // there is a remainder, which means that a new line was hit
                 if !slice.text[remainder..].is_empty() {
-                    // not just a trailing new line.
                     self.prev = Some(slice.clone_style(
                         &slice.text[remainder..],
                         slice.start + remainder,
                         slice.end,
                     ));
                 }
-                break; // exit looping
+                break;
             }
         }
 
         if v.is_empty() && self.idx >= self.slices.len() {
-            None // stop iterating if no slices were met and the index is above the slices len
+            None
         } else {
             Some(v)
         }
     }
 }
 
-/// Constructs a string of the categorised text without the ANSI escape characters.
+/// Splits on the first `\r\n` or `\n`.
 ///
-/// # Example
-/// ```rust
-/// use cansi::*;
-/// let categorised = categorise_text("\x1b[30mH\x1b[31me\x1b[32ml\x1b[33ml\x1b[34mo");
-/// assert_eq!("Hello", &construct_text_no_codes(&categorised));
-/// ```
-pub fn construct_text_no_codes(categorised_slices: &CategorisedSlices) -> String {
-    let slices = categorised_slices;
-    let mut s = String::with_capacity(
-        categorised_slices
-            .iter()
-            .map(|x| x.text.len())
-            .sum::<usize>(),
-    );
-    for sl in slices {
-        s.push_str(sl.text);
-    }
+/// Returns `(exclusive_end_of_first, inclusive_start_of_remainder)`.
+/// Both parts may be empty (e.g. `"\nHello"` gives `(0, Some(1))`).
+fn split_on_new_line(txt: &str) -> (usize, Option<usize>) {
+    let cr = txt.find('\r');
+    let nl = txt.find('\n');
 
-    s
+    match (cr, nl) {
+        (None, None) => (txt.len(), None),
+        (Some(_), None) => (txt.len(), None), // lone CR, no newline
+        (None, Some(nl)) => (nl, Some(nl + 1)),
+        (Some(cr), Some(nl)) => {
+            if nl.saturating_sub(1) == cr {
+                (cr, Some(nl + 1))
+            } else {
+                (nl, Some(nl + 1))
+            }
+        }
+    }
 }
