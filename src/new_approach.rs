@@ -26,7 +26,7 @@ pub enum ParseError {
 /// Apply a single SGR parameter value to the SGR state (GRCM cumulative).
 /// Unknown parameter values are silently ignored per ECMA-48.
 #[inline]
-fn apply_sgr_param(sgr: &mut SGR, param: u32) {
+fn apply_sgr_param(sgr: &mut SGR, param: u8) {
     match param {
         0 => *sgr = SGR::default(),
         1 => sgr.intensity = Some(Intensity::Bold),
@@ -95,7 +95,7 @@ fn parse_csi_sgr(bytes: &[u8], csi_start: usize, sgr: &mut SGR) -> Result<usize,
 
     // Parse into a scratch copy so we only commit on success.
     let mut scratch = *sgr;
-    let mut num: u32 = 0;
+    let mut num: u8 = 0;
 
     while i < len {
         let b = bytes[i];
@@ -103,7 +103,7 @@ fn parse_csi_sgr(bytes: &[u8], csi_start: usize, sgr: &mut SGR) -> Result<usize,
             b'0'..=b'9' => {
                 num = num
                     .checked_mul(10)
-                    .and_then(|n| n.checked_add((b - b'0') as u32))
+                    .and_then(|n| n.checked_add(b - b'0'))
                     .ok_or(ParseError::Overflow)?;
             }
             b';' => {
@@ -136,13 +136,14 @@ fn skip_csi(bytes: &[u8], csi_start: usize) -> usize {
 
 enum Phase {
     /// Scanning printable text. The current run started at `text_start`.
-    Text { text_start: usize },
+    Text,
     /// The previous byte was ESC at `esc_pos`.
-    Escape { text_start: usize, esc_pos: usize },
+    Escape { esc_pos: usize },
 }
 
 struct Parser {
     sgr: SGR,
+    text_start: usize,
     phase: Phase,
 }
 
@@ -150,7 +151,8 @@ impl Parser {
     fn new() -> Self {
         Self {
             sgr: SGR::default(),
-            phase: Phase::Text { text_start: 0 },
+            phase: Phase::Text,
+            text_start: 0
         }
     }
 
@@ -164,20 +166,6 @@ impl Parser {
         if start < end {
             slices.push(CategorisedSlice::with_sgr(sgr, &text[start..end], start, end));
         }
-    }
-
-    /// Strip a non-SGR CSI sequence: flush preceding text and skip past the sequence.
-    fn strip_csi<'t>(
-        &self,
-        slices: &mut Vec<CategorisedSlice<'t>>,
-        text: &'t str,
-        bytes: &[u8],
-        text_start: usize,
-        esc_pos: usize,
-    ) -> usize {
-        let seq_end = skip_csi(bytes, esc_pos);
-        Self::flush_text(slices, self.sgr, text, text_start, esc_pos);
-        seq_end
     }
 }
 
@@ -196,17 +184,18 @@ pub fn parse(text: &str) -> Vec<CategorisedSlice> {
     let mut i: usize = 0;
     while i < len {
         match p.phase {
-            Phase::Text { text_start } => {
-                if bytes[i] == 0x1B {
-                    p.phase = Phase::Escape { text_start, esc_pos: i };
+            Phase::Text => {
+                if bytes[i] == 0x1B { // TODO: should verify the whole CSI instead of double checking next byte in escape phase
+                    p.phase = Phase::Escape { esc_pos: i };
                 }
                 i += 1;
             }
 
-            Phase::Escape { text_start, esc_pos } => {
+            Phase::Escape { esc_pos } => {
                 if bytes[i] != b'[' {
+                    // TODO: This should be guaranteed by the type system. (well `bytes[i]` should always be the next byte after '[')
                     // Not CSI — ESC is just text. Don't advance; this byte could be ESC.
-                    p.phase = Phase::Text { text_start };
+                    p.phase = Phase::Text;
                     continue;
                 }
 
@@ -215,38 +204,37 @@ pub fn parse(text: &str) -> Vec<CategorisedSlice> {
                 match parse_csi_sgr(bytes, esc_pos, &mut p.sgr) {
                     Ok(seq_end) => {
                         // Flush text before this sequence with the pre-sequence SGR.
-                        Parser::flush_text(&mut slices, sgr_before, text, text_start, esc_pos);
+                        Parser::flush_text(&mut slices, sgr_before, text, p.text_start, esc_pos);
                         i = seq_end;
                     }
                     Err(ParseError::Truncated) => {
                         // No final byte — include ESC[ as literal text, done scanning.
                         p.sgr = sgr_before;
                         i = len;
-                        p.phase = Phase::Text { text_start };
+                        p.phase = Phase::Text;
                         continue;
                     }
                     Err(ParseError::NotSgr(_) | ParseError::PrivateSequence) => {
                         // Valid CSI but not SGR — strip it, don't change rendition.
                         p.sgr = sgr_before;
-                        i = p.strip_csi(&mut slices, text, bytes, text_start, esc_pos);
+                        Parser::flush_text(&mut slices, p.sgr, text, p.text_start, esc_pos);
+                        i = skip_csi(bytes, esc_pos);;
                     }
                     Err(ParseError::InvalidByte(_) | ParseError::Overflow) => {
                         // Garbage — not a real sequence, keep as literal text.
                         p.sgr = sgr_before;
                         i = esc_pos + 1;
-                        p.phase = Phase::Text { text_start };
+                        p.phase = Phase::Text;
                         continue;
                     }
                 }
-                p.phase = Phase::Text { text_start: i };
+                p.phase = Phase::Text;
+                p.text_start = i;
             }
         }
     }
 
-    // Flush remaining text.
-    if let Phase::Text { text_start } | Phase::Escape { text_start, .. } = p.phase {
-        Parser::flush_text(&mut slices, p.sgr, text, text_start, len);
-    }
+    Parser::flush_text(&mut slices, p.sgr, text, p.text_start, len);
 
     slices
 }
