@@ -30,6 +30,14 @@ fn categorise_text_fn(c: &mut Criterion) {
         let txt = format!("{}{}{}{}", cstr(), cstr(), cstr(), cstr());
         b.iter(|| cansi::categorise_text(&txt))
     });
+    c.bench_function("fn categorise_text real dataset", |b| {
+        let txt = my_str().to_string();
+        b.iter(|| cansi::categorise_text(&txt))
+    });
+    c.bench_function("fn categorise_text real dataset longer", |b| {
+        let txt = my_str().to_string().repeat(100);
+        b.iter(|| cansi::categorise_text(&txt))
+    });
 }
 
 fn construct_text_no_codes_fn(c: &mut Criterion) {
@@ -55,6 +63,11 @@ fn cstr() -> String {
         "Nullam maximus mauris a ultricies blandit.".bright_green(),
         "Morbi eget neque eget neque viverra mollis in id lacus.".bright_purple(),
     )
+}
+
+
+fn my_str() -> &'static str {
+    include_str!("../sample-string.txt")
 }
 
 criterion_group!(benches, categorise_text_fn, construct_text_no_codes_fn);

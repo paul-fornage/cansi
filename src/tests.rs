@@ -853,6 +853,29 @@ fn test_readme_code() {
 }
 
 #[test]
+fn partial_test_real_data() {
+    let text = include_str!("../sample-string.txt").to_string();
+    let result = categorise_text(&text);
+    let mut on_newline_start = true;
+    for slice in result {
+        if on_newline_start {
+            // This is just a pattern from the data, that every line happens to be reset before a newline.
+            //  Not a behavior we need to enforce.
+            assert_eq!(slice.fg, None);
+            assert_eq!(slice.bg, None);
+            assert_eq!(slice.intensity, None);
+            assert_eq!(slice.italic, None);
+            assert_eq!(slice.underline, None);
+            assert_eq!(slice.blink, None);
+            assert_eq!(slice.reversed, None);
+            assert_eq!(slice.hidden, None);
+            assert_eq!(slice.strikethrough, None);
+        }
+        on_newline_start = slice.text.chars().last() == Some('\n');
+    }
+}
+
+#[test]
 fn test_colored_function() {
     colored::control::set_override(true);
 

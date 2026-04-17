@@ -1,0 +1,57 @@
+[06:48:36.552] [35m[boot][0m usb echo firmware ready
+[06:48:36.552] [1m[format][0m [1mbold [2mdim [3mitalic [4munderline [0m
+[06:48:37.552] [32m[1m[heartbeat][0m[2m alive t_ms=[0m2370
+[06:48:38.551] [32m[1m[heartbeat][0m[2m alive t_ms=[0m3370
+[06:48:39.551] [32m[1m[heartbeat][0m[2m alive t_ms=[0m4370
+[06:48:40.551] [32m[1m[heartbeat][0m[2m alive t_ms=[0m5370
+[06:48:41.551] [32m[1m[heartbeat][0m[2m alive t_ms=[0m6370
+[06:48:41.762] INFO: > grdh
+[06:48:41.762] [36m[1m[echo][0m [4m[32m<<<[3mgrdh[4m>>>[0m
+[06:48:42.545] INFO: > tjhsfjsf
+[06:48:42.546] [36m[1m[echo][0m [4m[32m<<<[3mtjhsfjsf[4m>>>[0m
+[06:48:42.551] [32m[1m[heartbeat][0m[2m alive t_ms=[0m7370
+[06:48:43.551] [32m[1m[heartbeat][0m[2m alive t_ms=[0m8370
+[06:48:44.545] INFO: > jtjddgk,gcjkfhguiztbgjhrdzklhnkd
+[06:48:44.546] [36m[1m[echo][0m [4m[32m<<<[3mjtjddgk,gcjkfhguiztbgjhrdzklhnkd[4m>>>[0m
+[06:48:44.551] [32m[1m[heartbeat][0m[2m alive t_ms=[0m9370
+[06:48:45.551] [32m[1m[heartbeat][0m[2m alive t_ms=[0m10370
+[06:48:46.551] [32m[1m[heartbeat][0m[2m alive t_ms=[0m11370
+[06:48:47.551] [32m[1m[heartbeat][0m[2m alive t_ms=[0m12370
+[06:48:48.551] [32m[1m[heartbeat][0m[2m alive t_ms=[0m13370
+[06:48:49.551] [32m[1m[heartbeat][0m[2m alive t_ms=[0m14370
+[06:48:50.551] [32m[1m[heartbeat][0m[2m alive t_ms=[0m15370
+[06:48:51.551] [32m[1m[heartbeat][0m[2m alive t_ms=[0m16370
+[06:48:52.001] INFO: > gsrlhkzdht
+[06:48:52.002] [36m[1m[echo][0m [4m[32m<<<[3mgsrlhkzdht[4m>>>[0m
+[06:48:52.551] [32m[1m[heartbeat][0m[2m alive t_ms=[0m17370
+[06:48:53.089] INFO: > hdrztf
+[06:48:53.090] [36m[1m[echo][0m [4m[32m<<<[3mhdrztf[4m>>>[0m
+[06:48:53.551] [32m[1m[heartbeat][0m[2m alive t_ms=[0m18370
+[06:48:53.745] INFO: > gf
+[06:48:53.746] [36m[1m[echo][0m [4m[32m<<<[3mgf[4m>>>[0m
+[06:48:54.401] INFO: > kl
+[06:48:54.402] [36m[1m[echo][0m [4m[32m<<<[3mkl[4m>>>[0m
+[06:48:54.551] [32m[1m[heartbeat][0m[2m alive t_ms=[0m19370
+[06:48:55.041] INFO: > o
+[06:48:55.043] [36m[1m[echo][0m [4m[32m<<<[3mo[4m>>>[0m
+[06:48:55.551] [32m[1m[heartbeat][0m[2m alive t_ms=[0m20370
+[06:48:56.551] [32m[1m[heartbeat][0m[2m alive t_ms=[0m21370
+[06:48:57.551] [32m[1m[heartbeat][0m[2m alive t_ms=[0m22370
+[06:48:58.550] [32m[1m[heartbeat][0m[2m alive t_ms=[0m23370
+[06:48:59.550] [32m[1m[heartbeat][0m[2m alive t_ms=[0m24370
+[06:49:00.550] [32m[1m[heartbeat][0m[2m alive t_ms=[0m25370
+[06:49:01.550] [32m[1m[heartbeat][0m[2m alive t_ms=[0m26370
+[06:49:02.550] [32m[1m[heartbeat][0m[2m alive t_ms=[0m27370
+[06:49:03.550] [32m[1m[heartbeat][0m[2m alive t_ms=[0m28370
+[06:49:04.384] INFO: > .........................................................................................................
+[06:49:04.386] [36m[1m[echo][0m [4m[32m<<<[3m.........................................................................................................[4m>>>[0m
+[06:49:04.550] [32m[1m[heartbeat][0m[2m alive t_ms=[0m29370
+[06:49:05.550] [32m[1m[heartbeat][0m[2m alive t_ms=[0m30370
+[06:49:06.550] [32m[1m[heartbeat][0m[2m alive t_ms=[0m31370
+[06:49:07.550] [32m[1m[heartbeat][0m[2m alive t_ms=[0m32370
+[06:49:08.550] [32m[1m[heartbeat][0m[2m alive t_ms=[0m33370
+[06:49:09.550] [32m[1m[heartbeat][0m[2m alive t_ms=[0m34370
+[06:49:10.550] [32m[1m[heartbeat][0m[2m alive t_ms=[0m35370
+[06:49:11.550] [32m[1m[heartbeat][0m[2m alive t_ms=[0m36370
+[06:49:12.550] [32m[1m[heartbeat][0m[2m alive t_ms=[0m37370
+[06:49:13.550] [32m[1m[heartbeat][0m[2m alive t_ms=[0m38370
