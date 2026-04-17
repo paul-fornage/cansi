@@ -80,6 +80,13 @@ mod parser;
 #[cfg(test)]
 mod tests;
 
+
+#[deprecated = "V3 is now the default. No need to use `cansi::v3::*`"]
+/// Re export of the same namespace to not immediately break all usages of the crate.
+pub mod v3 {
+    pub use crate::*;
+}
+
 /// The SGR (Select Graphic Rendition) state accumulated from escape sequences.
 /// [spec](https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_(Select_Graphic_Rendition)_parameters)
 #[derive(Clone, Copy, Default)]
