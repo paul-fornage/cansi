@@ -192,10 +192,14 @@ pub fn parse(text: &'_ str) -> Vec<CategorisedSlice<'_>> {
     while i < len {
         match p.phase {
             Phase::Text => {
-                if bytes[i] == 0x1B { // TODO: should verify the whole CSI instead of double checking next byte in escape phase
-                    p.phase = Phase::Escape { esc_pos: i };
+                match text[i..].find('\x1B') {
+                    Some(rel) => {
+                        let esc_pos = i + rel;
+                        p.phase = Phase::Escape { esc_pos };
+                        i = esc_pos + 1;
+                    }
+                    None => i = len,
                 }
-                i += 1;
             }
 
             Phase::Escape { esc_pos } => {
