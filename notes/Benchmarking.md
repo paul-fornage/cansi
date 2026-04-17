@@ -181,3 +181,13 @@ Overall the benchmarking exercise highlighted the need to maintain and spend tim
 | `categorise_text long complex`     | 881.75 ns         | 373.22 ns         | -56.83% (Improved) |
 | `categorise_text long x 4 complex` | 3.0650 µs         | 1.3779 µs         | -57.63% (Improved) |
 | `construct_text_no_codes`          | 41.951 ns         | 35.133 ns         | -16.13% (Improved) |
+
+### RPI 5 tests (Raspberry Pi 5 Model B Rev 1.1, 8GB)
+| Benchmark Function                 | `d7ff7b77` (Mean) | `58980b78` (Mean) | % Change           |
+|:-----------------------------------|:------------------|:------------------|:-------------------|
+| `categorise_text &str`             | 142.15 ns         | 109.70 ns         | -22.83% (Improved) |
+| `categorise_text simple`           | 141.92 ns         | 113.73 ns         | -19.86% (Improved) |
+| `categorise_text long no color`    | 1.9107 µs         | 121.52 ns         | -93.63% (Improved) |
+| `categorise_text long complex`     | 2.8984 µs         | 1.0746 µs         | -62.92% (Improved) |
+| `categorise_text long x 4 complex` | 10.654 µs         | 3.8657 µs         | -63.72% (Improved) |
+| `construct_text_no_codes`          | 133.15 ns         | 83.359 ns         | -37.39% (Improved) |
