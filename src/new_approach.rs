@@ -125,7 +125,8 @@ fn parse_csi_sgr(bytes: &[u8], csi_start: usize, sgr: &mut SGR) -> Result<usize,
 }
 
 /// Skip forward from a CSI start to find the end of the sequence (byte after the final byte).
-/// Returns `len` if no final byte is found.
+/// Used to strip non-SGR CSI sequences (e.g. cursor movement) without keeping them as text.
+/// Returns `len` if no final byte is found (truncated sequence).
 fn skip_csi(bytes: &[u8], csi_start: usize) -> usize {
     let mut j = csi_start + 2;
     while j < bytes.len() && !(0x40..=0x7E).contains(&bytes[j]) {
@@ -143,6 +144,9 @@ enum Phase {
 
 struct Parser {
     sgr: SGR,
+    /// Byte offset where the current pending text run begins.
+    /// Text is not emitted until something forces a flush (an SGR sequence or end of input),
+    /// so we lazily accumulate by just tracking the start position.
     text_start: usize,
     phase: Phase,
 }
@@ -156,6 +160,9 @@ impl Parser {
         }
     }
 
+    /// Emit the accumulated text run `text[start..end]` tagged with `sgr`.
+    /// Called when an SGR sequence (or end of input) closes the current run.
+    /// No-ops on empty ranges so callers don't need to guard.
     fn flush_text<'t>(
         slices: &mut Vec<CategorisedSlice<'t>>,
         sgr: SGR,
@@ -175,7 +182,7 @@ impl Parser {
 /// a CSI SGR sequence. Valid SGR sequences update the cumulative graphic
 /// rendition (GRCM cumulative mode). Other valid CSI sequences are stripped.
 /// Malformed or truncated sequences are kept as literal text.
-pub fn parse(text: &str) -> Vec<CategorisedSlice> {
+pub fn parse(text: &'_ str) -> Vec<CategorisedSlice<'_>> {
     let bytes = text.as_bytes();
     let len = bytes.len();
     let mut slices: Vec<CategorisedSlice> = Vec::new();
@@ -192,6 +199,7 @@ pub fn parse(text: &str) -> Vec<CategorisedSlice> {
             }
 
             Phase::Escape { esc_pos } => {
+                // `i` is the byte right after ESC. CSI requires ESC followed by '['.
                 if bytes[i] != b'[' {
                     // TODO: This should be guaranteed by the type system. (well `bytes[i]` should always be the next byte after '[')
                     // Not CSI — ESC is just text. Don't advance; this byte could be ESC.
@@ -203,25 +211,29 @@ pub fn parse(text: &str) -> Vec<CategorisedSlice> {
                 let sgr_before = p.sgr;
                 match parse_csi_sgr(bytes, esc_pos, &mut p.sgr) {
                     Ok(seq_end) => {
-                        // Flush text before this sequence with the pre-sequence SGR.
+                        // Flush the run that ended just before ESC with its pre-sequence SGR,
+                        // then start a new run after the sequence under the updated SGR.
                         Parser::flush_text(&mut slices, sgr_before, text, p.text_start, esc_pos);
                         i = seq_end;
                     }
                     Err(ParseError::Truncated) => {
-                        // No final byte — include ESC[ as literal text, done scanning.
+                        // Input ended inside a sequence — treat everything from text_start
+                        // to end-of-input as literal text (ESC[ included).
                         p.sgr = sgr_before;
                         i = len;
                         p.phase = Phase::Text;
                         continue;
                     }
                     Err(ParseError::NotSgr(_) | ParseError::PrivateSequence) => {
-                        // Valid CSI but not SGR — strip it, don't change rendition.
+                        // Valid CSI but not SGR (e.g. cursor movement) — strip it silently,
+                        // flushing the text before it and resuming after it.
                         p.sgr = sgr_before;
                         Parser::flush_text(&mut slices, p.sgr, text, p.text_start, esc_pos);
                         i = skip_csi(bytes, esc_pos);;
                     }
                     Err(ParseError::InvalidByte(_) | ParseError::Overflow) => {
-                        // Garbage — not a real sequence, keep as literal text.
+                        // Malformed sequence — not a real escape, keep ESC as literal text
+                        // and re-scan from the byte after ESC.
                         p.sgr = sgr_before;
                         i = esc_pos + 1;
                         p.phase = Phase::Text;
@@ -229,6 +241,7 @@ pub fn parse(text: &str) -> Vec<CategorisedSlice> {
                     }
                 }
                 p.phase = Phase::Text;
+                // Advance text_start past the consumed sequence so the next run begins cleanly.
                 p.text_start = i;
             }
         }
