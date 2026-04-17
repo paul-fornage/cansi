@@ -153,3 +153,31 @@ The benchmark result was ~196 ns, which seemed more likely. So depsite the neatn
 ## Thoughts
 
 Overall the benchmarking exercise highlighted the need to maintain and spend time benchmarking functions. Code that was written to make a process _work_ may need an eye cast over it to make it _efficient_. Although this crate does not need high performance, dependents might and it was good to see improvements in the refactoring.
+
+
+
+## 4-17-26
+
+### Intel tests (Intel i7-14700):
+| Benchmark Function                    | `d7ff7b77` (Mean) | `63d0aba7` (Mean) | % Change           |
+|:--------------------------------------|:------------------|:------------------|:-------------------|
+| `categorise_text &str`                | 44.087 ns         | 29.639 ns         | -32.77% (Improved) |
+| `categorise_text simple`              | 44.722 ns         | 30.371 ns         | -32.09% (Improved) |
+| `categorise_text long no color`       | 497.041 ns        | 33.928 ns         | -93.17% (Improved) |
+| `categorise_text long complex`        | 801.803 ns        | 331.730 ns        | -58.63% (Improved) |
+| `categorise_text long x 4 complex`    | 3.0179 µs         | 1.1183 µs         | -62.95% (Improved) |
+| `categorise_text real dataset`        | 4.4539 µs         | 3.0450 µs         | -31.63% (Improved) |
+| `categorise_text real dataset longer` | 428.4392 µs       | 286.9300 µs       | -33.03% (Improved) |
+| `construct_text_no_codes`             | 31.717 ns         | 24.254 ns         | -23.53% (Improved) |
+
+^ Data is the same in `58980b78`, just new tests + I am not making that table again.
+
+### AMD tests (R9 7950X3D):
+| Benchmark Function                 | `d7ff7b77` (Mean) | `58980b78` (Mean) | % Change           |
+|:-----------------------------------|:------------------|:------------------|:-------------------|
+| `categorise_text &str`             | 37.142 ns         | 38.103 ns         | +2.85% (Regressed) |
+| `categorise_text simple`           | 37.053 ns         | 38.129 ns         | +2.77% (Regressed) |
+| `categorise_text long no color`    | 504.41 ns         | 39.819 ns         | -92.10% (Improved) |
+| `categorise_text long complex`     | 881.75 ns         | 373.22 ns         | -56.83% (Improved) |
+| `categorise_text long x 4 complex` | 3.0650 µs         | 1.3779 µs         | -57.63% (Improved) |
+| `construct_text_no_codes`          | 41.951 ns         | 35.133 ns         | -16.13% (Improved) |
