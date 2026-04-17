@@ -81,6 +81,8 @@ use alloc::string::String;
 #[cfg(all(not(feature = "std"), feature = "alloc"))]
 use alloc::vec::Vec;
 
+#[macro_use]
+mod logging;
 mod categorise;
 mod parsing;
 

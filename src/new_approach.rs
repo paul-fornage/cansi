@@ -7,24 +7,24 @@ use alloc::vec::Vec;
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ParseError {
     /// The sequence was cut off before a final byte was found.
-    #[error("")]
+    #[error("CSI sequence truncated before final byte")]
     Truncated,
     /// A byte was encountered that is not valid in a CSI parameter string.
-    #[error("")]
+    #[error("invalid byte 0x{0:02x} in CSI parameter string")]
     InvalidByte(u8),
-    /// A numeric parameter overflowed u32.
-    #[error("")]
+    /// A numeric parameter overflowed u8.
+    #[error("SGR parameter overflowed u8")]
     Overflow,
     /// The final byte was not 'm', so this is a valid CSI but not SGR.
-    #[error("")]
+    #[error("valid CSI but not SGR (final byte 0x{0:02x})")]
     NotSgr(u8),
     /// The sequence uses a private/experimental prefix (e.g. `ESC[?`).
-    #[error("")]
+    #[error("private/experimental CSI sequence")]
     PrivateSequence,
 }
 
 /// Apply a single SGR parameter value to the SGR state (GRCM cumulative).
-/// Unknown parameter values are silently ignored per ECMA-48.
+/// Unknown parameter values are ignored per ECMA-48.
 #[inline]
 fn apply_sgr_param(sgr: &mut SGR, param: u8) {
     match param {
@@ -76,7 +76,7 @@ fn apply_sgr_param(sgr: &mut SGR, param: u8) {
         105 => sgr.bg = Some(Color::BrightMagenta),
         106 => sgr.bg = Some(Color::BrightCyan),
         107 => sgr.bg = Some(Color::BrightWhite),
-        _ => {}
+        _ => { trace!("cansi: unknown SGR parameter {param}, ignoring") }
     }
 }
 
@@ -188,6 +188,8 @@ pub fn parse(text: &'_ str) -> Vec<CategorisedSlice<'_>> {
     let mut slices: Vec<CategorisedSlice> = Vec::new();
     let mut p = Parser::new();
 
+    trace!("cansi::parse: {} byte input", len);
+
     let mut i: usize = 0;
     while i < len {
         match p.phase {
@@ -205,8 +207,8 @@ pub fn parse(text: &'_ str) -> Vec<CategorisedSlice<'_>> {
             Phase::Escape { esc_pos } => {
                 // `i` is the byte right after ESC. CSI requires ESC followed by '['.
                 if bytes[i] != b'[' {
-                    // TODO: This should be guaranteed by the type system. (well `bytes[i]` should always be the next byte after '[')
                     // Not CSI — ESC is just text. Don't advance; this byte could be ESC.
+                    trace!("cansi::parse: bare ESC at byte {esc_pos} (next byte 0x{:02x}), not CSI, treating as text", bytes[i]);
                     p.phase = Phase::Text;
                     continue;
                 }
@@ -217,27 +219,31 @@ pub fn parse(text: &'_ str) -> Vec<CategorisedSlice<'_>> {
                     Ok(seq_end) => {
                         // Flush the run that ended just before ESC with its pre-sequence SGR,
                         // then start a new run after the sequence under the updated SGR.
+                        trace!("cansi::parse: SGR sequence at {}..{}", esc_pos, seq_end);
                         Parser::flush_text(&mut slices, sgr_before, text, p.text_start, esc_pos);
                         i = seq_end;
                     }
-                    Err(ParseError::Truncated) => {
+                    Err(_e @ ParseError::Truncated) => {
                         // Input ended inside a sequence — treat everything from text_start
                         // to end-of-input as literal text (ESC[ included).
+                        trace!("cansi::parse: {_e} at byte {esc_pos}, treating remainder as literal");
                         p.sgr = sgr_before;
                         i = len;
                         p.phase = Phase::Text;
                         continue;
                     }
-                    Err(ParseError::NotSgr(_) | ParseError::PrivateSequence) => {
+                    Err(_e @ (ParseError::NotSgr(_) | ParseError::PrivateSequence)) => {
                         // Valid CSI but not SGR (e.g. cursor movement) — strip it silently,
                         // flushing the text before it and resuming after it.
+                        trace!("cansi::parse: {_e} at byte {esc_pos}, stripping");
                         p.sgr = sgr_before;
                         Parser::flush_text(&mut slices, p.sgr, text, p.text_start, esc_pos);
-                        i = skip_csi(bytes, esc_pos);;
+                        i = skip_csi(bytes, esc_pos);
                     }
-                    Err(ParseError::InvalidByte(_) | ParseError::Overflow) => {
+                    Err(_e @ (ParseError::InvalidByte(_) | ParseError::Overflow)) => {
                         // Malformed sequence — not a real escape, keep ESC as literal text
                         // and re-scan from the byte after ESC.
+                        warn!("cansi::parse: {_e} at byte {esc_pos}, treating as literal text");
                         p.sgr = sgr_before;
                         i = esc_pos + 1;
                         p.phase = Phase::Text;
