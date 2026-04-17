@@ -204,7 +204,76 @@ impl<'text> CategorisedSlice<'text> {
         c
     }
 
+    /// Converts this slice back into a [`colored::ColoredString`] with the same styling applied.
+    ///
+    /// Only styles explicitly set to an active value are emitted:
+    /// - `fg`/`bg`: the corresponding colour code
+    /// - `intensity`: bold or faint (normal / unset → no code)
+    /// - boolean attributes (`italic`, `underline`, `blink`, `reversed`, `hidden`,
+    ///   `strikethrough`): emitted only when `Some(true)`
+    ///
+    /// Requires the `colorized` feature.
+    #[cfg(feature = "colorized")]
+    pub fn as_colorized(&self) -> colored::ColoredString {
+        use colored::Colorize as _;
 
+        let mut s: colored::ColoredString = self.text.into();
+
+        if let Some(fg) = self.fg {
+            s = s.color(colored::Color::from(fg));
+        }
+        if let Some(bg) = self.bg {
+            s = s.on_color(colored::Color::from(bg));
+        }
+        match self.intensity {
+            Some(Intensity::Bold) => s = s.bold(),
+            Some(Intensity::Faint) => s = s.dimmed(),
+            _ => {}
+        }
+        if self.italic == Some(true) {
+            s = s.italic();
+        }
+        if self.underline == Some(true) {
+            s = s.underline();
+        }
+        if self.blink == Some(true) {
+            s = s.blink();
+        }
+        if self.reversed == Some(true) {
+            s = s.reversed();
+        }
+        if self.hidden == Some(true) {
+            s = s.hidden();
+        }
+        if self.strikethrough == Some(true) {
+            s = s.strikethrough();
+        }
+        s
+    }
+}
+
+#[cfg(feature = "colorized")]
+impl From<Color> for colored::Color {
+    fn from(c: Color) -> Self {
+        match c {
+            Color::Black => colored::Color::Black,
+            Color::Red => colored::Color::Red,
+            Color::Green => colored::Color::Green,
+            Color::Yellow => colored::Color::Yellow,
+            Color::Blue => colored::Color::Blue,
+            Color::Magenta => colored::Color::Magenta,
+            Color::Cyan => colored::Color::Cyan,
+            Color::White => colored::Color::White,
+            Color::BrightBlack => colored::Color::BrightBlack,
+            Color::BrightRed => colored::Color::BrightRed,
+            Color::BrightGreen => colored::Color::BrightGreen,
+            Color::BrightYellow => colored::Color::BrightYellow,
+            Color::BrightBlue => colored::Color::BrightBlue,
+            Color::BrightMagenta => colored::Color::BrightMagenta,
+            Color::BrightCyan => colored::Color::BrightCyan,
+            Color::BrightWhite => colored::Color::BrightWhite,
+        }
+    }
 }
 
 /// A collection of [`CategorisedSlice`]s covering a parsed string.

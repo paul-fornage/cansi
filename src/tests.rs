@@ -1094,3 +1094,54 @@ fn basic_colour_positions() {
     });
     assert_eq!(result[2], CategorisedSlice { text: "!", start: 23, end: 24, ..DEFAULT_STYLE });
 }
+
+/// Compare two slices ignoring byte positions, and normalising "explicitly off" boolean
+/// attributes to `None` (since `as_colorized` only emits codes for `Some(true)`).
+#[cfg(feature = "colorized")]
+fn styles_match(a: &CategorisedSlice, b: &CategorisedSlice) -> bool {
+    fn nb(v: Option<bool>) -> bool { v == Some(true) }
+    fn ni(v: Option<super::Intensity>) -> Option<super::Intensity> {
+        match v { Some(super::Intensity::Normal) => None, x => x }
+    }
+
+    a.text == b.text
+        && a.fg == b.fg
+        && a.bg == b.bg
+        && ni(a.intensity) == ni(b.intensity)
+        && nb(a.italic) == nb(b.italic)
+        && nb(a.underline) == nb(b.underline)
+        && nb(a.blink) == nb(b.blink)
+        && nb(a.reversed) == nb(b.reversed)
+        && nb(a.hidden) == nb(b.hidden)
+        && nb(a.strikethrough) == nb(b.strikethrough)
+}
+
+#[cfg(feature = "colorized")]
+#[test]
+fn round_trip_sample_string() {
+    colored::control::set_override(true);
+
+    let original = include_str!("../sample-string.txt");
+
+    // First parse
+    let parsed1 = categorise_text(original);
+
+    // Rebuild an ANSI string from the parsed slices using as_colorized()
+    let recolored: String = parsed1.iter().map(|s| s.as_colorized().to_string()).collect();
+
+    // Second parse of the rebuilt string
+    let parsed2 = categorise_text(&recolored);
+
+    assert_eq!(
+        parsed1.len(),
+        parsed2.len(),
+        "slice count differs after round-trip"
+    );
+
+    for (i, (s1, s2)) in parsed1.iter().zip(parsed2.iter()).enumerate() {
+        assert!(
+            styles_match(s1, s2),
+            "slice {i} differs after round-trip\n  original : {s1:?}\n  recolored: {s2:?}"
+        );
+    }
+}

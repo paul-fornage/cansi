@@ -16,10 +16,12 @@ default = ["std"]
 std = ["thiserror/std"]
 alloc = []
 logging = ["log"]
+colorized = ["dep:colored"]
 
 [dependencies]
 thiserror = { version = "2", default-features = false }
 log = { version = "0.4", optional = true, default-features = false }
+colored = { version = "3.1.1", optional = true }
 
 [dev-dependencies]
 criterion = "0.8.2"
